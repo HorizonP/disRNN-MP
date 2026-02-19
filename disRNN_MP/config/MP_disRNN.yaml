@@ -1,0 +1,63 @@
+hydra:
+  mode: 'MULTIRUN'
+  sweep:
+    subdir: ${hydra.job.num} # ${hydra.job.override_dirname}
+  sweeper:
+    params:
+      training.datasets.dat_or_path: choice("data/mp_beh_m14_500completed.npy", "data/mp_beh_m211_500completed.npy", "data/mp_beh_m18_500completed.npy")
+
+
+
+random_seed: 23
+
+# this is a list of dictionaries specifying a sequence of training sessions
+sessions:
+# - session_name: {overrides of `default_session`}
+# - 0: {} # run with default
+- step1_no_penalty:
+    n_block: 40
+- step2_latent_and_update_penalty:
+    n_block: 150
+    penalty_scale: 1e-3
+    beta_scale: 1
+- step3_latent_and_update_penalty:
+    n_block: 80
+    penalty_scale: 2e-3
+    beta_scale: 1
+
+# post processing functions to run after all sessions finished (e.g., generate figures)
+post_processing:
+- _target_: disRNN_MP.rnn.train_utils.serialize
+- _target_: disRNN_MP.rnn.train_utils.disrnn_update_rules_plot
+
+# post processing functions to run after each block
+post_block:
+- _target_: disRNN_MP.rnn.plots.disrnn_dashboard_html
+  sort_bn: False
+
+
+training:
+  _target_: disRNN_MP.rnn.disRNN_training
+  datasets:
+    _target_: disRNN_MP.dataset.train_test_datasets
+    dat_or_path: "data/mp_beh_m14_500completed.npy"
+    n_sess_sample: 0.9999 # the number of session to be used for training dataset
+    min_sess: 41
+    seed: ${random_seed}
+    in_feat_name: ['choice','reward']
+  latent_size: 6
+  update_mlp_shape: [3,3,]
+  choice_mlp_shape: [2,]
+  optimizer: 
+    _target_: optax.adam
+    learning_rate: 1e-3
+
+default_session:
+  name: ???
+  n_block: 10 
+  steps_per_block: 100
+  random_key: null
+  loss_type: 'penalized_categorical'
+  block_update_funcs: []
+  penalty_scale: 0
+  beta_scale: 1

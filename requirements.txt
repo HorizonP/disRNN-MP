@@ -1,0 +1,30 @@
+# disRNN model requirements
+jax[cuda12]
+dm_haiku
+optax
+flax
+# jaxopt  # Optional: install with `pip install disRNN-MP[legacy]` for legacy fitting
+
+# database store of models
+hydra-core
+cloudpickle
+omegaconf
+pydantic
+SQLAlchemy
+psycopg2-binary
+tqdm
+
+# analysis
+pandas
+xarray
+matplotlib
+plotly
+polars
+juliacall
+igraph
+cairocffi
+plotnine
+statsmodels
+seaborn
+pyarrow
+diskcache 

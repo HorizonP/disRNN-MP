@@ -1,0 +1,13 @@
+
+
+sql_engine:
+  url: ???
+  # connect_args:
+  #   timeout: 5 # x(s) timeout for each query
+
+jax_platform: 'gpu'
+
+# trainee_id: 1 # optional, the id of ModelTrainee to work on
+
+scavenge: False # if true, keep searching and do other jobs
+max_na_try: 50

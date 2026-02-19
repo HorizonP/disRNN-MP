@@ -1,0 +1,62 @@
+[build-system]
+requires = [
+    "hatchling", 
+    "hatch-requirements-txt"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "disRNN-MP"
+dynamic = ["version"]
+description = "Interpretable RNN models for matching pennies behavioral tasks using JAX/Haiku"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Peiyu Liu" },
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+  "cairocffi",
+  "cloudpickle",
+  "diskcache",
+  "dm-haiku",
+  "flax",
+  "hydra-core",
+  "igraph",
+  "ipykernel",
+  "jax",
+  "juliacall",
+  "matplotlib",
+  "networkx",
+  "omegaconf",
+  "optax",
+  "pandas",
+  "plotly",
+  "plotnine",
+  "polars",
+  "psycopg2-binary",
+  "pyarrow",
+  "pydantic",
+  "seaborn",
+  "sqlalchemy",
+  "statsmodels",
+  "tqdm",
+  "xarray",
+]
+
+[project.optional-dependencies]
+legacy = ["jaxopt"]  # Required for optimizer='jaxopt' in RLmodelWrapper.fit()
+
+[tool.hatch.version]
+path = "disRNN_MP/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/disRNN_MP",
+]

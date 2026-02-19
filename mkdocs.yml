@@ -1,0 +1,33 @@
+site_name: disRNN-MP documentation
+
+theme:
+  name: material
+  palette:
+    primary: amber
+    accent: deep orange
+  features:
+    - navigation.instant # instant loading
+    - navigation.path
+    - search.suggest
+    - search.highlight
+
+
+plugins: 
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+  - literate-nav:
+      nav_file: NAVIGATION.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
