@@ -89,6 +89,11 @@ pip install -e ".[legacy]"
 
 **Note:** JAX installation may require platform-specific steps for GPU support. See the [JAX installation guide](https://github.com/google/jax#installation).
 
+### Quickstart
+
+- [Resumable model training with a database backend](./usage_example/training_ModelTrainee.ipynb)
+- more quickstart examples are planned in the future
+
 ## Package Structure
 
 | Submodule | Description |
