@@ -4,41 +4,38 @@ import numpy as np
 import jax
 import haiku as hk
 
-from .disrnn import HkDisRNN
+from .disrnn_def import hkDisRNN
 from ..dataset import trainingDataset
 from .train import RNNtraining
 from .utils import transform_hkRNN, RNNtransformed
 
-def make_disrnn_funcs(latent_size, update_mlp_shape, choice_mlp_shape, obs_size=None, target_size=None, sample_dataset=None):
+def make_disrnn_funcs(latent_size, update_mlp_shape, choice_mlp_shape, target_size=None, sample_dataset=None):
     """create a pair of network definition functions for disRNN
-    normal and eval mode models with same hyperparameters 
+    normal and eval mode models with same hyperparameters
     Return (normal_model, eval_model)
     """
 
-    if obs_size is not None and target_size is not None:
+    if target_size is not None:
         pass
-    elif (obs_size is None or target_size is None) and sample_dataset is not None:
+    elif sample_dataset is not None:
         md_input, md_target = next(sample_dataset)
-        obs_size = md_input.shape[2]
         target_size = len(np.unique(md_target))
     else:
         raise Exception(
-            "either provide a sample dataset or specify obs_size and target_size")
+            "either provide a sample dataset or specify target_size")
 
     def disrnn_module():
-        model = HkDisRNN(latent_size=latent_size,
+        model = hkDisRNN(latent_size=latent_size,
                          update_mlp_shape=update_mlp_shape,
                          choice_mlp_shape=choice_mlp_shape,
-                         obs_size=obs_size,
                          target_size=target_size,
                          eval_mode=False)  # type: ignore
         return model
 
     def disrnn_eval():
-        model = HkDisRNN(latent_size=latent_size,
+        model = hkDisRNN(latent_size=latent_size,
                          update_mlp_shape=update_mlp_shape,
                          choice_mlp_shape=choice_mlp_shape,
-                         obs_size=obs_size,
                          target_size=target_size,
                          eval_mode=True)  # type: ignore
         return model
@@ -47,23 +44,21 @@ def make_disrnn_funcs(latent_size, update_mlp_shape, choice_mlp_shape, obs_size=
 
 
 def make_transformed_disrnn(
-        latent_size: int, 
-        update_mlp_shape: Sequence[int], 
-        choice_mlp_shape: Sequence[int], 
-        obs_size: int, 
-        target_size: int, 
+        latent_size: int,
+        update_mlp_shape: Sequence[int],
+        choice_mlp_shape: Sequence[int],
+        target_size: int = 2,
         eval_mode = False) -> RNNtransformed:
     def disrnn_module():
-        model = HkDisRNN(
+        model = hkDisRNN(
             latent_size=latent_size,
             update_mlp_shape=update_mlp_shape,
             choice_mlp_shape=choice_mlp_shape,
-            obs_size=obs_size,
             target_size=target_size,
             eval_mode=eval_mode
         )  # type: ignore
         return model
-    
+
     return transform_hkRNN(disrnn_module)
 
 def disRNN_training(datasets: Tuple[trainingDataset, trainingDataset], latent_size, update_mlp_shape, choice_mlp_shape, optimizer):
@@ -73,16 +68,15 @@ def disRNN_training(datasets: Tuple[trainingDataset, trainingDataset], latent_si
 
     Returns:
         RNNtraining: a constructed RNNtraining instance for the disRNN model specified
-    """    
-    
+    """
+
     train_dataset, _ = datasets
 
     md_input, md_target = next(train_dataset)
-    obs_size = md_input.shape[2]
     target_size = len(np.unique(md_target))
 
     disrnn_module, disrnn_eval = make_disrnn_funcs(
-        latent_size, update_mlp_shape, choice_mlp_shape, obs_size=obs_size, target_size=target_size)
+        latent_size, update_mlp_shape, choice_mlp_shape, target_size=target_size)
 
     return RNNtraining(model = disrnn_module, eval_model= disrnn_eval, datasets = datasets, optimizer = optimizer)
 

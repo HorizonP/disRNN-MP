@@ -78,14 +78,13 @@ se2 = trainingSession(
 mt = ModelTrainee(
     dry_model = {
         '_target_': 'disRNN_MP.rnn.network_defs.make_transformed_disrnn',
-        'latent_size': 5, 
-        'update_mlp_shape': [3,3], 
-        'choice_mlp_shape': [2,], 
-        'obs_size': 2, 
-        'target_size': 2, 
+        'latent_size': 5,
+        'update_mlp_shape': [3,3],
+        'choice_mlp_shape': [2,],
+        'target_size': 2,
         'eval_mode': False
     },
-    eval_model = make_transformed_disrnn(5, [3,3], [2,], 2, 2, True)
+    eval_model = make_transformed_disrnn(5, [3,3], [2,], 2, True)
 )
 
 mt.sessions = [se1, se2]
@@ -94,18 +93,17 @@ with Session(engine) as sess:
     sess.add(mt)
     sess.commit()
 # %% version 2 compose
-    
+
 mt = ModelTrainee(
     dry_model = {
         '_target_': 'disRNN_MP.rnn.network_defs.make_transformed_disrnn',
-        'latent_size': 5, 
-        'update_mlp_shape': [3,3], 
-        'choice_mlp_shape': [2,], 
-        'obs_size': 2, 
-        'target_size': 2, 
+        'latent_size': 5,
+        'update_mlp_shape': [3,3],
+        'choice_mlp_shape': [2,],
+        'target_size': 2,
         'eval_mode': False
     },
-    eval_model = make_transformed_disrnn(5, [3,3], [2,], 2, 2, True),
+    eval_model = make_transformed_disrnn(5, [3,3], [2,], 2, True),
     dry_default_datasets = {
         '_target_': 'disRNN_MP.dataset.train_test_datasets',
         'dat_or_path': Path("../data/mp_beh_m18_500completed.npy").resolve().as_posix(),
