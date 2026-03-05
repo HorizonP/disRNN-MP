@@ -460,9 +460,9 @@ class ModelTrainee(Base):
         if se_ind is None:
             raise ValueError('record cannot be added since training has not begin (no current session)')
         else:
+            self.records.append(rec)
             rec.parent_session = self.sessions[se_ind]
             rec.worker = self.worker
-            self.records.append(rec)
 
     @property
     def curr_sess_ind(self) -> Optional[int]:

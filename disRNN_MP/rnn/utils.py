@@ -131,6 +131,39 @@ def eval_model(
 
     return y_hats, states
 
+def eval_model_from_state(
+    model_fun: Callable[[], hk.RNNCore],
+    params: hk.Params,
+    xs: jax.Array,
+    initial_state: jax.Array,
+) -> Tuple[jax.Array, jax.Array]:
+    """Run an RNN from a custom initial state.
+
+    Same as eval_model, but starts from the supplied initial_state
+    instead of core.initial_state().  Useful for simulating short
+    subsequences from the middle of a session.
+
+    Args:
+        model_fun: A Haiku function that defines a network architecture
+        params: Parameters for the model
+        xs: Inputs [timesteps, episodes, features]
+        initial_state: Starting latent state [episodes, latent_size]
+
+    Returns:
+        y_hats: Network outputs at each timestep
+        states: Network states at each timestep
+    """
+
+    def unroll_from_state(xs, state):
+        core = model_fun()
+        ys, states = hk.dynamic_unroll(core, xs, state, return_all_states=True)
+        return ys, states
+
+    _, apply = hk.transform(unroll_from_state)
+    key = jax.random.PRNGKey(0)
+    y_hats, states = apply(params, key, xs, initial_state)
+    return y_hats, states
+
 def make_param_metric_expLL(model: RNNtransformed, n_action: int):
     key = jax.random.PRNGKey(np.random.randint(2**32))
     def _metric(params, xs, ys):

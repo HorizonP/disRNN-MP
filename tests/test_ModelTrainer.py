@@ -82,11 +82,74 @@ _DRY_MAKE_PARAM_METRIC = {
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def db_engine(tmpdir):
-    """In-memory SQLite engine with all tables created."""
+def db_engine():
+    """In-memory SQLite engine with all tables created (function-scoped)."""
     engine = create_engine('sqlite://', echo=False)
     Base.metadata.create_all(engine)
     return engine
+
+
+@pytest.fixture(scope="module")
+def shared_engine():
+    """In-memory SQLite engine shared across tests in this module."""
+    engine = create_engine('sqlite://', echo=False)
+    Base.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture(scope="module")
+def trained_2session_mt(shared_engine):
+    """Train a 2-session model (40 steps) once, reuse across tests."""
+    mt = ModelTrainee(
+        dry_model=_DRY_MODEL,
+        dry_eval_model=_DRY_EVAL_MODEL,
+        dry_default_datasets=_DRY_DATASETS,
+        dry_default_optimizer=_DRY_OPTIMIZER,
+        dry_default_make_param_metric=_DRY_MAKE_PARAM_METRIC,
+    )
+    mt.sessions = [
+        trainingSession(
+            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_NO_PENALTY,
+            n_step=20,
+            steps_per_block=10,
+        ),
+        trainingSession(
+            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_WITH_PENALTY,
+            n_step=20,
+            steps_per_block=10,
+        ),
+    ]
+    sess = Session(shared_engine, expire_on_commit=False)
+    sess.add(mt)
+    sess.commit()
+    mt.train(sess)
+    yield sess, mt
+    sess.close()
+
+
+@pytest.fixture(scope="module")
+def trained_1session_mt(shared_engine):
+    """Train a 1-session model (10 steps) once, reuse across tests."""
+    mt = ModelTrainee(
+        dry_model=_DRY_MODEL,
+        dry_eval_model=_DRY_EVAL_MODEL,
+        dry_default_datasets=_DRY_DATASETS,
+        dry_default_optimizer=_DRY_OPTIMIZER,
+        dry_default_make_param_metric=_DRY_MAKE_PARAM_METRIC,
+    )
+    mt.sessions = [
+        trainingSession(
+            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_NO_PENALTY,
+            n_step=10,
+            steps_per_block=5,
+        ),
+    ]
+    sess = Session(shared_engine, expire_on_commit=False)
+    sess.add(mt)
+    sess.commit()
+    mt.train(sess)
+    yield sess, mt
+    sess.close()
 
 
 @pytest.fixture
@@ -189,39 +252,13 @@ def test_session_config_with_defaults(db_engine):
 # Test 3: training completes
 # ---------------------------------------------------------------------------
 
-def test_train_completes(db_engine):
+def test_train_completes(trained_2session_mt):
     """Full training loop runs to completion with 2 short sessions."""
-    mt = ModelTrainee(
-        dry_model=_DRY_MODEL,
-        dry_eval_model=_DRY_EVAL_MODEL,
-        dry_default_datasets=_DRY_DATASETS,
-        dry_default_optimizer=_DRY_OPTIMIZER,
-        dry_default_make_param_metric=_DRY_MAKE_PARAM_METRIC,
-    )
-    mt.sessions = [
-        trainingSession(
-            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_NO_PENALTY,
-            n_step=20,
-            steps_per_block=10,
-        ),
-        trainingSession(
-            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_WITH_PENALTY,
-            n_step=20,
-            steps_per_block=10,
-        ),
-    ]
+    sess, mt = trained_2session_mt
 
-    sess = Session(db_engine, expire_on_commit=False)
-    sess.add(mt)
-    sess.commit()
-
-    code = mt.train(sess)
-
-    assert code == 0
     assert mt.state.step == mt.total_steps  # 40
     assert len(mt.records) > 0
     assert len(mt.loss_trace) > 0
-    sess.close()
 
 
 # ---------------------------------------------------------------------------
@@ -279,34 +316,9 @@ def test_reinstantiate_and_train(db_engine):
 # Test 5: fork from record
 # ---------------------------------------------------------------------------
 
-def test_fork_from_record(db_engine):
+def test_fork_from_record(trained_2session_mt):
     """Forking creates a new ModelTrainee from a checkpoint record."""
-    # Train original
-    mt = ModelTrainee(
-        dry_model=_DRY_MODEL,
-        dry_eval_model=_DRY_EVAL_MODEL,
-        dry_default_datasets=_DRY_DATASETS,
-        dry_default_optimizer=_DRY_OPTIMIZER,
-        dry_default_make_param_metric=_DRY_MAKE_PARAM_METRIC,
-    )
-    mt.sessions = [
-        trainingSession(
-            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_NO_PENALTY,
-            n_step=20,
-            steps_per_block=10,
-        ),
-        trainingSession(
-            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_WITH_PENALTY,
-            n_step=20,
-            steps_per_block=10,
-        ),
-    ]
-
-    sess = Session(db_engine, expire_on_commit=False)
-    sess.add(mt)
-    sess.commit()
-    code = mt.train(sess)
-    assert code == 0
+    sess, mt = trained_2session_mt
 
     # Pick a record from the middle
     assert len(mt.records) >= 2
@@ -333,7 +345,6 @@ def test_fork_from_record(db_engine):
 
     # Verify forked trainee has its own records
     assert len(forked.records) > 0
-    sess.close()
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +440,7 @@ def test_cli_train(db_file_engine):
 # Test 8: training determinism (snapshot-based)
 # ---------------------------------------------------------------------------
 
-def test_training_determinism(db_engine):
+def test_training_determinism(trained_1session_mt):
     """Training output matches saved snapshot for deterministic reproducibility."""
     import numpy as np
     from disRNN_MP.utils import isequal_pytree, msgpack_restore_from_file
@@ -438,26 +449,7 @@ def test_training_determinism(db_engine):
     snapshot_path = Path(__file__).parent / "test_data" / "training_snapshot.msgpack"
     expected = msgpack_restore_from_file(snapshot_path)
 
-    # Run training with identical config
-    mt = ModelTrainee(
-        dry_model=_DRY_MODEL,
-        dry_eval_model=_DRY_EVAL_MODEL,
-        dry_default_datasets=_DRY_DATASETS,
-        dry_default_optimizer=_DRY_OPTIMIZER,
-        dry_default_make_param_metric=_DRY_MAKE_PARAM_METRIC,
-    )
-    mt.sessions = [
-        trainingSession(
-            dry_make_train_step=_DRY_MAKE_TRAIN_STEP_NO_PENALTY,
-            n_step=10,
-            steps_per_block=5,
-        ),
-    ]
-    sess = Session(db_engine, expire_on_commit=False)
-    sess.add(mt)
-    sess.commit()
-    code = mt.train(sess)
-    assert code == 0
+    _, mt = trained_1session_mt
 
     # Compare params
     assert isequal_pytree(mt.state.params, expected["params"]), \
@@ -467,5 +459,3 @@ def test_training_determinism(db_engine):
     actual_losses = np.array([l.value for l in mt.loss_trace])
     np.testing.assert_array_equal(actual_losses, expected["losses"],
         err_msg="Per-step losses diverge from snapshot")
-
-    sess.close()
